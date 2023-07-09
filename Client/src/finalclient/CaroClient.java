@@ -10,7 +10,6 @@ public class CaroClient {
 
         public static JFrame f;
         JButton[][] btn;
-        static boolean flag = false;
         boolean winner;
 
         JTextArea content;
@@ -19,10 +18,9 @@ public class CaroClient {
         TextField textField;
         JPanel p;
         String temp = "";
-        String strNhan = "";
         int xx, yy, x, y;
-        int[][] matran;
-        int[][] matrandanh;
+        int[][] maTran;
+        int[][] maTranDanhDau;
 
         // Server Socket
         ServerSocket serversocket;
@@ -46,8 +44,8 @@ public class CaroClient {
                 // f.setVisible(true);
                 f.setResizable(false);
 
-                matran = new int[x][y];
-                matrandanh = new int[x][y];
+                maTran = new int[x][y];
+                maTranDanhDau = new int[x][y];
                 menubar = new MenuBar();
                 p = new JPanel();
                 p.setBounds(10, 30, 400, 400);
@@ -101,9 +99,10 @@ public class CaroClient {
                         @Override
                         public void actionPerformed(ActionEvent e) {
                                 JOptionPane.showConfirmDialog(f,
-                                                "Luật chơi rất đơn giản bạn chỉ cần 5 ô liên tiếp nhau\n"
-                                                                + "Theo hàng ngang hoặc dọc hoặc chéo là bạn đã thắng",
-                                                "Luật Chơi",
+                                                "Players take turns placing their pieces on the grid\n"
+                                                                + "The objective is to be the first to create a line of five of \n"
+                                                                + "their pieces horizontally, vertically, or diagonally",
+                                                "Rules",
                                                 JOptionPane.CLOSED_OPTION);
                         }
                 });
@@ -131,20 +130,18 @@ public class CaroClient {
                 send.addActionListener(new ActionListener() {
                         @Override
                         public void actionPerformed(ActionEvent e) {
-                                if (e.getSource().equals(send)) {
-                                        try {
+                                try {
 
-                                                temp += "Tôi: " + enterchat.getText() + "\n";
-                                                content.setText(temp);
-                                                oos.writeObject("chat," + enterchat.getText());
-                                                enterchat.setText("");
-                                                enterchat.requestFocus();
-                                                content.setVisible(false);
-                                                content.setVisible(true);
+                                        temp += "You: " + enterchat.getText() + "\n";
+                                        content.setText(temp);
+                                        oos.writeObject("chat," + enterchat.getText());
+                                        enterchat.setText("");
+                                        enterchat.requestFocus();
+                                        content.setVisible(false);
+                                        content.setVisible(true);
 
-                                        } catch (Exception r) {
-                                                r.printStackTrace();
-                                        }
+                                } catch (Exception r) {
+                                        r.printStackTrace();
                                 }
                         }
                 });
@@ -158,9 +155,8 @@ public class CaroClient {
                                 btn[a][b].addActionListener(new ActionListener() {
                                         @Override
                                         public void actionPerformed(ActionEvent e) {
-                                                flag = true;// server da click
 
-                                                matrandanh[a][b] = 1;
+                                                maTranDanhDau[a][b] = 1;
                                                 btn[a][b].setEnabled(false);
                                                 btn[a][b].setBackground(Color.BLUE);
                                                 try {
@@ -180,7 +176,7 @@ public class CaroClient {
 
                 try {
                         socket = new Socket("127.0.0.1", 1234);
-                        System.out.println("Da ket noi toi server!");
+                        System.out.println("Connected to server!");
                         os = socket.getOutputStream();
                         is = socket.getInputStream();
                         oos = new ObjectOutputStream(os);
@@ -189,7 +185,7 @@ public class CaroClient {
                                 String stream = ois.readObject().toString();
                                 String[] data = stream.split(",");
                                 if (data[0].equals("chat")) {
-                                        temp += "Khách:" + data[1] + '\n';
+                                        temp += "Guest:" + data[1] + '\n';
                                         content.setText(temp);
                                 } else if (data[0].equals("caro")) {
                                         caro(data[1], data[2]);
@@ -198,7 +194,19 @@ public class CaroClient {
                                                 setEnableButton(true);
                                 } else if (data[0].equals("newgame")) {
                                         newgame();
-                                } else if (data[0].equals("checkwin")) {
+                                } else if (data[0].equals("confirmNewGame")) {
+                                        int m = JOptionPane.showConfirmDialog(f,
+                                                        "The opponent has challenged you to play again. Would you like to play?",
+                                                        "Notifications",
+                                                        JOptionPane.YES_NO_OPTION);
+                                        if (m == JOptionPane.YES_OPTION) {
+                                                newgame();
+                                                try {
+                                                        oos.writeObject("newgame,123");
+                                                } catch (IOException ie) {
+                                                        //
+                                                }
+                                        }
                                 }
                         }
                 } catch (Exception ie) {
@@ -210,25 +218,18 @@ public class CaroClient {
         public void newgame() {
                 for (int i = 0; i < x; i++) {
                         for (int j = 0; j < y; j++) {
-                                btn[i][j].setBackground(Color.LIGHT_GRAY);
-                                matran[i][j] = 0;
-                                matrandanh[i][j] = 0;
+                                btn[i][j].setBackground(Color.white);
+                                maTran[i][j] = 0;
+                                maTranDanhDau[i][j] = 0;
                         }
                 }
                 setEnableButton(true);
         }
 
-        public void setVisiblePanel(JPanel pHienthi) {
-                f.add(pHienthi);
-                pHienthi.setVisible(true);
-                pHienthi.updateUI();// ......
-
-        }
-
         public void setEnableButton(boolean b) {
                 for (int i = 0; i < x; i++) {
                         for (int j = 0; j < y; j++) {
-                                if (matrandanh[i][j] == 0)
+                                if (maTranDanhDau[i][j] == 0)
                                         btn[i][j].setEnabled(b);
                         }
                 }
@@ -241,7 +242,7 @@ public class CaroClient {
                 for (int i = 0; i < x; i++) {
                         for (int j = 0; j < y; j++) {
                                 if (check) {
-                                        if (matran[i][j] == 1) {
+                                        if (maTran[i][j] == 1) {
                                                 hang++;
                                                 if (hang > 4) {
                                                         win = 1;
@@ -253,7 +254,7 @@ public class CaroClient {
                                                 hang = 0;
                                         }
                                 }
-                                if (matran[i][j] == 1) {
+                                if (maTran[i][j] == 1) {
                                         check = true;
                                         hang++;
                                 } else {
@@ -271,7 +272,7 @@ public class CaroClient {
                 for (int j = 0; j < y; j++) {
                         for (int i = 0; i < x; i++) {
                                 if (check) {
-                                        if (matran[i][j] == 1) {
+                                        if (maTran[i][j] == 1) {
                                                 cot++;
                                                 if (cot > 4) {
                                                         win = 1;
@@ -283,7 +284,7 @@ public class CaroClient {
                                                 cot = 0;
                                         }
                                 }
-                                if (matran[i][j] == 1) {
+                                if (maTran[i][j] == 1) {
                                         check = true;
                                         cot++;
                                 } else {
@@ -301,7 +302,7 @@ public class CaroClient {
                 for (int i = x - 1; i >= 0; i--) {
                         for (int j = 0; j < y; j++) {
                                 if (check) {
-                                        if (matran[n - j][j] == 1) {
+                                        if (maTran[n - j][j] == 1) {
                                                 cheop++;
                                                 if (cheop > 4) {
                                                         win = 1;
@@ -313,7 +314,7 @@ public class CaroClient {
                                                 cheop = 0;
                                         }
                                 }
-                                if (matran[i][j] == 1) {
+                                if (maTran[i][j] == 1) {
                                         n = i + j;
                                         check = true;
                                         cheop++;
@@ -333,7 +334,7 @@ public class CaroClient {
                 for (int i = 0; i < x; i++) {
                         for (int j = y - 1; j >= 0; j--) {
                                 if (check) {
-                                        if (matran[n - j - 2 * cheot][j] == 1) {
+                                        if (maTran[n - j - 2 * cheot][j] == 1) {
                                                 cheot++;
                                                 System.out.print("+" + j);
                                                 if (cheot > 4) {
@@ -346,7 +347,7 @@ public class CaroClient {
                                                 cheot = 0;
                                         }
                                 }
-                                if (matran[i][j] == 1) {
+                                if (maTran[i][j] == 1) {
                                         n = i + j;
                                         check = true;
                                         cheot++;
@@ -366,29 +367,24 @@ public class CaroClient {
                 xx = Integer.parseInt(x);
                 yy = Integer.parseInt(y);
                 // danh dau vi tri danh
-                matran[xx][yy] = 1;
-                matrandanh[xx][yy] = 1;
+                maTran[xx][yy] = 1;
+                maTranDanhDau[xx][yy] = 1;
                 btn[xx][yy].setEnabled(false);
                 // btn[xx][yy].setIcon(new ImageIcon("x.png"));
                 btn[xx][yy].setBackground(Color.RED);
 
                 // Kiem tra thang hay chua
                 winner = (checkHang() == 1 || checkCot() == 1 || checkCheoPhai() == 1 || checkCheoTrai() == 1);
-                if (checkHang() == 1 || checkCot() == 1 || checkCheoPhai() == 1
-                                || checkCheoTrai() == 1) {
+                if (winner) {
                         setEnableButton(false);
-                        try {
-                                oos.writeObject("checkwin,123");
-                        } catch (IOException ex) {
-                        }
                         int m = JOptionPane.showConfirmDialog(f,
-                                        "Ban da thua.Ban co muon choi lai khong?", "Thong bao",
+                                        "You have lost. Would you like to challenge the opponent again?",
+                                        "Notifications",
                                         JOptionPane.YES_NO_OPTION);
                         if (m == JOptionPane.YES_OPTION) {
-                                setVisiblePanel(p);
-                                newgame();
+                                // newgame();
                                 try {
-                                        oos.writeObject("newgame,123");
+                                        oos.writeObject("confirmNewGame,123");
                                 } catch (IOException ie) {
                                         //
                                 }
